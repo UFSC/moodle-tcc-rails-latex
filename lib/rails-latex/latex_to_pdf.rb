@@ -1,6 +1,6 @@
 class LatexToPdf
   def self.config
-    @config||={:command => 'pdflatex', :arguments => ['-halt-on-error'], :parse_twice => false}
+    @config||={:command => 'pdflatex', :bibtex => true, :arguments => ['-halt-on-error'], :parse_twice => false}
   end
 
   # Converts a string of LaTeX +code+ into a binary string of PDF.
@@ -16,6 +16,7 @@ class LatexToPdf
     parse_twice=config[:parse_twice] if parse_twice.nil?
     dir=File.join(Rails.root,'tmp','rails-latex',"#{Process.pid}-#{Thread.current.hash}")
     input=File.join(dir,'input.tex')
+    bibFile = input.gsub('.tex','')
     FileUtils.mkdir_p(dir)
     # copy any additional supporting files (.cls, .sty, ...)
     supporting = config[:supporting]
@@ -30,7 +31,13 @@ class LatexToPdf
           STDOUT.reopen("input.log","a")
           STDERR.reopen(STDOUT)
           args=config[:arguments] + %w[-shell-escape -interaction batchmode input.tex]
-          system config[:command],'-draftmode',*args if parse_twice
+
+          if config[:bibtex] == true
+            system "latex -shell-escape -interaction batchmode #{input}"
+            system "bibtex #{bibFile}"
+          end
+
+          system 'latex','-draftmode',*args if parse_twice
           exec config[:command],*args
         rescue
           File.open("input.log",'a') {|io|
