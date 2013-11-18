@@ -1,6 +1,6 @@
 class LatexToPdf
   def self.config
-    @config||={:command => 'pdflatex', :bibtex => true, :arguments => ['-halt-on-error'], :parse_twice => false}
+    @config||={:command => 'pdflatex', :arguments => ['-halt-on-error'], :parse_twice => false}
   end
 
   # Converts a string of LaTeX +code+ into a binary string of PDF.
@@ -11,51 +11,87 @@ class LatexToPdf
   # The config argument defaults to LatexToPdf.config but can be overridden using @latex_config.
   #
   # The parse_twice argument is deprecated in favor of using config[:parse_twice] instead.
-  def self.generate_pdf(code,config,parse_twice=nil)
+  def self.generate_pdf(code, config, parse_twice=nil)
     config=self.config.merge(config)
     parse_twice=config[:parse_twice] if parse_twice.nil?
-    dir=File.join(Rails.root,'tmp','rails-latex',"#{Process.pid}-#{Thread.current.hash}")
-    input=File.join(dir,'input.tex')
-    bibFile = input.gsub('.tex','')
+    dir=File.join(Rails.root, 'tmp', 'rails-latex', "#{Process.pid}-#{Thread.current.hash}")
+    input=File.join(dir, 'input.tex')
+
     FileUtils.mkdir_p(dir)
-    # copy any additional supporting files (.cls, .sty, ...)
-    supporting = config[:supporting]
-    if supporting.class == String or supporting.class == Array and supporting.length > 0
-      FileUtils.cp(supporting, dir)
-    end
-    File.open(input,'wb') {|io| io.write(code) }
+    File.open(input, 'wb') { |io| io.write(code) }
+
     Process.waitpid(
-      fork do
-        begin
-          Dir.chdir dir
-          STDOUT.reopen("input.log","a")
-          STDERR.reopen(STDOUT)
-          args=config[:arguments] + %w[-shell-escape -interaction batchmode input.tex]
+        fork do
+          begin
+            Dir.chdir dir
+            STDOUT.reopen("input.log", "a")
+            STDERR.reopen(STDOUT)
+            args=config[:arguments] + %w[-shell-escape -interaction batchmode input.tex]
 
-          if config[:bibtex] == true
-            system "latex -shell-escape -interaction batchmode #{input}"
-            system "bibtex #{bibFile}"
+            exec "latex -shell-escape -interaction batchmode #{input}"
+          rescue
+            Process.exit! 1
+          ensure
+            Process.exit! 1
           end
+        end)
 
-          system 'latex','-draftmode',*args if parse_twice
-          exec config[:command],*args
-        rescue
-          File.open("input.log",'a') {|io|
-            io.write("#{$!.message}:\n#{$!.backtrace.join("\n")}\n")
-          }
-        ensure
-          Process.exit! 1
-        end
-      end)
-    if File.exist?(pdf_file=input.sub(/\.tex$/,'.pdf'))
-      FileUtils.mv(input.sub(/\.tex$/,'.log'),File.join(dir,'..','input.log'))
+    Process.waitpid(
+        fork do
+          begin
+            Dir.chdir dir
+            STDOUT.reopen("input.log", "a")
+            STDERR.reopen(STDOUT)
+            args=config[:arguments] + %w[-shell-escape -interaction batchmode input.tex]
+
+            bibFile = input.gsub('.tex','')
+            exec "bibtex #{bibFile}"
+          rescue
+            Process.exit! 1
+          ensure
+            Process.exit! 1
+          end
+        end)
+
+    Process.waitpid(
+        fork do
+          begin
+            Dir.chdir dir
+            STDOUT.reopen("input.log", "a")
+            STDERR.reopen(STDOUT)
+            args=config[:arguments] + %w[-shell-escape -interaction batchmode input.tex]
+            system config[:command], '-draftmode', *args if parse_twice
+            exec config[:command], *args
+          rescue
+            File.open("input.log", 'a') { |io|
+              io.write("#{$!.message}:\n#{$!.backtrace.join("\n")}\n")
+            }
+          ensure
+            Process.exit! 1
+          end
+        end)
+
+
+    if File.exist?(pdf_file=input.sub(/\.tex$/, '.pdf'))
+      FileUtils.mv(input.sub(/\.tex$/, '.log'), File.join(dir, '..', 'input.log'))
       result=File.read(pdf_file)
-      FileUtils.rm_rf(dir)
+      #FileUtils.rm_rf(dir)
     else
-      raise "pdflatex failed: See #{input.sub(/\.tex$/,'.log')} for details"
+      raise "pdflatex failed: See #{input.sub(/\.tex$/, '.log')} for details"
     end
     result
   end
+
+
+  #def sef.gerenate_bibtex(code)
+  #  dir=File.join(Rails.root, 'tmp', 'rails-latex', 'teste')
+  #  file=File.new('input.bib')
+  #
+  #  FileUtils.mkdir_p(dir)
+  #  File.open(input, 'wb') { |io| io.write(code) }
+  #
+  #end
+
 
   # Escapes LaTex special characters in text so that they wont be interpreted as LaTex commands.
   #
@@ -71,16 +107,16 @@ class LatexToPdf
         class << (@latex_escaper=Object.new)
           ESCAPE_RE=/([{}_$&%#])|([\\^~|<>])/
           ESC_MAP={
-            '\\' => 'backslash',
-            '^' => 'asciicircum',
-            '~' => 'asciitilde',
-            '|' => 'bar',
-            '<' => 'less',
-            '>' => 'greater',
+              '\\' => 'backslash',
+              '^' => 'asciicircum',
+              '~' => 'asciitilde',
+              '|' => 'bar',
+              '<' => 'less',
+              '>' => 'greater',
           }
 
-          def latex_esc(text)   # :nodoc:
-            text.gsub(ESCAPE_RE) {|m|
+          def latex_esc(text) # :nodoc:
+            text.gsub(ESCAPE_RE) { |m|
               if $1
                 "\\#{m}"
               else
