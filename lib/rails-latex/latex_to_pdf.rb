@@ -1,6 +1,6 @@
 class LatexToPdf
   def self.config
-    @config||={:command => 'pdflatex', :arguments => ['-halt-on-error'], :parse_twice => false}
+    @config||={:command => 'xdvipdfmx', :arguments => ['-halt-on-error'], :parse_twice => false}
   end
 
   # Converts a string of LaTeX +code+ into a binary string of PDF.
@@ -28,7 +28,7 @@ class LatexToPdf
             STDERR.reopen(STDOUT)
             args=config[:arguments] + %w[-shell-escape -interaction batchmode input.tex]
 
-            exec "latex -shell-escape -interaction batchmode #{input}"
+            exec "xelatex -shell-escape -interaction batchmode #{input}"
           rescue
             Process.exit! 1
           ensure
@@ -82,15 +82,6 @@ class LatexToPdf
     result
   end
 
-
-  #def sef.gerenate_bibtex(code)
-  #  dir=File.join(Rails.root, 'tmp', 'rails-latex', 'teste')
-  #  file=File.new('input.bib')
-  #
-  #  FileUtils.mkdir_p(dir)
-  #  File.open(input, 'wb') { |io| io.write(code) }
-  #
-  #end
 
 
   # Escapes LaTex special characters in text so that they wont be interpreted as LaTex commands.
