@@ -53,6 +53,23 @@ class LatexToPdf
           end
         end)
 
+
+    Process.waitpid(
+        fork do
+          begin
+            Dir.chdir dir
+            STDOUT.reopen("input.log", "a")
+            STDERR.reopen(STDOUT)
+            args=config[:arguments] + %w[-shell-escape -interaction batchmode input.tex]
+
+            exec "xelatex --output-driver=\"xdvipdfmx -vv\" -shell-escape -interaction batchmode #{input}"
+          rescue
+            Process.exit! 1
+          ensure
+            Process.exit! 1
+          end
+        end)
+
     Process.waitpid(
         fork do
           begin
