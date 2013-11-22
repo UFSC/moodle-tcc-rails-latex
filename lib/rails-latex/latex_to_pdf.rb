@@ -28,7 +28,7 @@ class LatexToPdf
             STDERR.reopen(STDOUT)
             args=config[:arguments] + %w[-shell-escape -interaction batchmode input.tex]
 
-            exec "xelatex -shell-escape -interaction batchmode #{input}"
+            exec "xelatex --output-driver=\"xdvipdfmx -vv\" -shell-escape -interaction batchmode #{input}"
           rescue
             Process.exit! 1
           ensure
