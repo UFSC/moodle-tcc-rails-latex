@@ -1,6 +1,6 @@
 class LatexToPdf
   def self.config
-    @config||={:command => 'xdvipdfmx', :arguments => ['-halt-on-error'], :parse_twice => false}
+    @config ||= {:distro => :latex, :arguments => ['-halt-on-error'], :bibtex => false}
   end
 
   # Converts a string of LaTeX +code+ into a binary string of PDF.
@@ -11,94 +11,46 @@ class LatexToPdf
   # The config argument defaults to LatexToPdf.config but can be overridden using @latex_config.
   #
   # The parse_twice argument is deprecated in favor of using config[:parse_twice] instead.
-  def self.generate_pdf(code, config, parse_twice=nil)
-    config=self.config.merge(config)
-    parse_twice=config[:parse_twice] if parse_twice.nil?
+  def self.generate_pdf(code, config)
+    config = self.config.merge(config)
+    tex_distro = self.tex_distro(config[:distro])
+
     dir=File.join(Rails.root, 'tmp', 'rails-latex', "#{Process.pid}-#{Thread.current.hash}")
-    input=File.join(dir, 'input.tex')
+
+    input = File.join(dir, 'input')
+    latex_file = "#{input}.tex"
+    pdf_file = "#{input}.pdf"
+    log_file = "#{input}.log"
 
     FileUtils.mkdir_p(dir)
-    File.open(input, 'wb') { |io| io.write(code) }
+    File.open(latex_file, 'wb') { |io| io.write(code) }
 
-    Process.waitpid(
-        fork do
-          begin
-            Dir.chdir dir
-            STDOUT.reopen("input.log", "a")
-            STDERR.reopen(STDOUT)
-            args=config[:arguments] + %w[-shell-escape -interaction batchmode input.tex]
+    tex_distro.run_command(dir, tex_distro.build_command(config[:arguments], input))
 
-            exec "xelatex --output-driver=\"xdvipdfmx -vv\" -shell-escape -interaction batchmode #{input}"
-          rescue
-            Process.exit! 1
-          ensure
-            Process.exit! 1
-          end
-        end)
+    if config[:bibtex]
+      bib_file = input
+      bib_index_file = "#{input}.idx"
 
-    Process.waitpid(
-        fork do
-          begin
-            Dir.chdir dir
-            STDOUT.reopen("input.log", "a")
-            STDERR.reopen(STDOUT)
-            args=config[:arguments] + %w[-shell-escape -interaction batchmode input.tex]
+      tex_distro.run_command(dir, "bibtex #{bib_file}")
+      tex_distro.run_command(dir, "makeindex #{bib_index_file}")
 
-            bibFile = input.gsub('.tex','')
-            exec "bibtex #{bibFile}"
-          rescue
-            Process.exit! 1
-          ensure
-            Process.exit! 1
-          end
-        end)
+      tex_distro.run_command(dir, tex_distro.build_command(config[:arguments], input))
+      tex_distro.run_command(dir, tex_distro.build_command(config[:arguments], input))
+    end
+
+    # This is where PDF is actually generated
+    tex_distro.run_command(dir, tex_distro.build_pdf_command(config[:arguments], input))
 
 
-    Process.waitpid(
-        fork do
-          begin
-            Dir.chdir dir
-            STDOUT.reopen("input.log", "a")
-            STDERR.reopen(STDOUT)
-            args=config[:arguments] + %w[-shell-escape -interaction batchmode input.tex]
-
-            exec "xelatex --output-driver=\"xdvipdfmx -vv\" -shell-escape -interaction batchmode #{input}"
-          rescue
-            Process.exit! 1
-          ensure
-            Process.exit! 1
-          end
-        end)
-
-    Process.waitpid(
-        fork do
-          begin
-            Dir.chdir dir
-            STDOUT.reopen("input.log", "a")
-            STDERR.reopen(STDOUT)
-            args=config[:arguments] + %w[-shell-escape -interaction batchmode input.tex]
-            system config[:command], '-draftmode', *args if parse_twice
-            exec config[:command], *args
-          rescue
-            File.open("input.log", 'a') { |io|
-              io.write("#{$!.message}:\n#{$!.backtrace.join("\n")}\n")
-            }
-          ensure
-            Process.exit! 1
-          end
-        end)
-
-
-    if File.exist?(pdf_file=input.sub(/\.tex$/, '.pdf'))
-      FileUtils.mv(input.sub(/\.tex$/, '.log'), File.join(dir, '..', 'input.log'))
+    if File.exist? pdf_file
+      FileUtils.mv("#{input}.log", File.join(dir, '..', 'input.log'))
       result=File.read(pdf_file)
-      #FileUtils.rm_rf(dir)
+      FileUtils.rm_rf(dir)
     else
-      raise "pdflatex failed: See #{input.sub(/\.tex$/, '.log')} for details"
+      raise "PDF generation failed: See #{log_file} for details"
     end
     result
   end
-
 
 
   # Escapes LaTex special characters in text so that they wont be interpreted as LaTex commands.
@@ -138,5 +90,16 @@ class LatexToPdf
     end
 
     @latex_escaper.latex_esc(text.to_s).html_safe
+  end
+
+  def self.tex_distro(name)
+    case name
+      when :latex
+        Latex
+      when :xelatex
+        Xelatex
+      else
+        raise InvalidArgumentError, 'unknown tex distro'
+    end
   end
 end

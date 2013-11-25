@@ -1,2 +1,5 @@
 require "rails-latex/version"
 require "rails-latex/erb_latex"
+require "rails-latex/distros/tex_distro"
+require "rails-latex/distros/latex"
+require "rails-latex/distros/xelatex"
