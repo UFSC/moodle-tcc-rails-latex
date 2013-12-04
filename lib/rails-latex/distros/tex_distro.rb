@@ -6,8 +6,15 @@ class TexDistro
         fork do
           begin
             Dir.chdir path
-            STDOUT.reopen(log_file, 'a')
-            STDERR.reopen(STDOUT)
+
+            # Passenger 4.0.x redirects STDOUT to STDER
+            # more info: https://github.com/jacott/rails-latex/issues/29
+            if defined?(::PhusionPassenger)
+              STDERR.reopen(log_file, 'a')
+            else
+              STDOUT.reopen(log_file, 'a')
+              STDERR.reopen(STDOUT)
+            end
 
             exec command
           rescue
