@@ -1,6 +1,6 @@
 class LatexToPdf
   def self.config
-    @config ||= {:distro => :latex, :arguments => ['-halt-on-error'], :bibtex => false}
+    @config ||= {:distro => :latex, :arguments => ['-halt-on-error'], :bibtex => false, :dockerImage => ''}
   end
 
   # Converts a string of LaTeX +code+ into a binary string of PDF.
@@ -17,29 +17,35 @@ class LatexToPdf
 
     dir=File.join(Rails.root, 'tmp', 'rails-latex', "#{Process.pid}-#{Thread.current.hash}")
 
-    input = File.join(dir, 'input')
-    latex_file = "#{input}.tex"
+    if config[:dockerImage].present?
+      input = 'input'
+      inputLocal = File.join(dir, 'input')
+      latex_file = "#{inputLocal}.tex"
+    else
+      input = File.join(dir, 'input')
+      latex_file = "#{input}.tex"
+    end
     pdf_file = "#{input}.pdf"
     log_file = "#{input}.log"
 
     FileUtils.mkdir_p(dir)
     File.open(latex_file, 'wb') { |io| io.write(code) }
 
-    tex_distro.run_command(dir, tex_distro.build_command(config[:arguments], input))
+    tex_distro.run_command(dir, tex_distro.build_command(config[:arguments], input), config[:dockerImage])
 
     if config[:bibtex]
       bib_file = input
       bib_index_file = "#{input}.idx"
 
-      tex_distro.run_command(dir, "bibtex #{bib_file}")
-      tex_distro.run_command(dir, "makeindex #{bib_index_file}")
+      tex_distro.run_command(dir, "bibtex #{bib_file}", config[:dockerImage])
+      tex_distro.run_command(dir, "makeindex #{bib_index_file}", config[:dockerImage])
 
-      tex_distro.run_command(dir, tex_distro.build_command(config[:arguments], input))
-      tex_distro.run_command(dir, tex_distro.build_command(config[:arguments], input))
+      tex_distro.run_command(dir, tex_distro.build_command(config[:arguments], input), config[:dockerImage])
+      tex_distro.run_command(dir, tex_distro.build_command(config[:arguments], input), config[:dockerImage])
     end
 
     # This is where PDF is actually generated
-    tex_distro.run_command(dir, tex_distro.build_pdf_command(config[:arguments], input))
+    tex_distro.run_command(dir, tex_distro.build_pdf_command(config[:arguments], input), config[:dockerImage])
 
 
     if File.exist? pdf_file
@@ -103,3 +109,4 @@ class LatexToPdf
     end
   end
 end
+

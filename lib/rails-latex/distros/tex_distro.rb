@@ -1,22 +1,25 @@
 class TexDistro
-  def self.run_command(path, command)
+  def self.run_command(path, command, dockerImage)
     log_file = 'input.log'
 
     Process.waitpid(
         fork do
           begin
-            Dir.chdir path
-
-            # Passenger 4.0.x redirects STDOUT to STDER
-            # more info: https://github.com/jacott/rails-latex/issues/29
-            if defined?(::PhusionPassenger)
-              STDERR.reopen(log_file, 'a')
+            if dockerImage.present?
+              exec "docker run --rm -i --user=\"root:deploy\" --net=none -v #{path}:/data #{dockerImage} /bin/bash -c \"source /etc/environment && #{command}\""
             else
-              STDOUT.reopen(log_file, 'a')
-              STDERR.reopen(STDOUT)
-            end
+              Dir.chdir path
 
-            exec command
+              # Passenger 4.0.x redirects STDOUT to STDER
+              # more info: https://github.com/jacott/rails-latex/issues/29
+              if defined?(::PhusionPassenger)
+                STDERR.reopen(log_file, 'a')
+              else
+                STDOUT.reopen(log_file, 'a')
+                STDERR.reopen(STDOUT)
+              end
+              exec command
+            end
           rescue
             File.open(log_file, 'a') { |io| io.write("#{$!.message}:\n#{$!.backtrace.join("\n")}\n") }
           ensure

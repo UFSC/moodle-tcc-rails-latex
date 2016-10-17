@@ -12,7 +12,7 @@ class Xelatex < TexDistro
   end
 
   def self.build_command(arguments, filename)
-    default_arguments = self.default_arguments.prepend('--output-driver="xdvipdfmx -vv"')
+    default_arguments = self.default_arguments.prepend("--output-driver='xdvipdfmx -vv'")
     "#{self.command} #{arguments.join(' ')} #{default_arguments.join(' ')} #{filename}.tex"
   end
 
