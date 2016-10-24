@@ -5,19 +5,25 @@ class TexDistro
     Process.waitpid(
         fork do
           begin
-            if dockerImage.present?
-              exec "docker run --rm -i --user=\"root:deploy\" --net=none -v #{path}:/data #{dockerImage} /bin/bash -c \"source /etc/environment && #{command}\""
-            else
+            if dockerImage.blank?
               Dir.chdir path
+            end
 
-              # Passenger 4.0.x redirects STDOUT to STDER
-              # more info: https://github.com/jacott/rails-latex/issues/29
-              if defined?(::PhusionPassenger)
-                STDERR.reopen(log_file, 'a')
-              else
-                STDOUT.reopen(log_file, 'a')
-                STDERR.reopen(STDOUT)
-              end
+            # Passenger 4.0.x redirects STDOUT to STDER
+            # more info: https://github.com/jacott/rails-latex/issues/29
+            if defined?(::PhusionPassenger)
+              STDERR.reopen(log_file, 'a')
+            else
+              STDOUT.reopen(log_file, 'a')
+              STDERR.reopen(STDOUT)
+            end
+
+            if dockerImage.present?
+              # TODO: criar um volume apontando para: APLICACAO/public/uploads/...
+              # TODO: criar um volume apontando para: APLICACAO/public/uploads/ckeditor/pictures/3/image.png
+              # TODO: criar um volume apontando para: APLICACAO/public/uploads/institution/picture/1/logo.png
+              exec "docker run --rm -i --user=\"$(id -un):$(id -gn)\" --net=none -v #{path}:/data #{dockerImage} /bin/bash -c \"source /etc/environment && #{command}\""
+            else
               exec command
             end
           rescue

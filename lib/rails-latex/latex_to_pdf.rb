@@ -21,11 +21,12 @@ class LatexToPdf
       input = 'input'
       inputLocal = File.join(dir, 'input')
       latex_file = "#{inputLocal}.tex"
+      pdf_file = "#{inputLocal}.pdf"
     else
       input = File.join(dir, 'input')
       latex_file = "#{input}.tex"
+      pdf_file = "#{input}.pdf"
     end
-    pdf_file = "#{input}.pdf"
     log_file = "#{input}.log"
 
     FileUtils.mkdir_p(dir)
