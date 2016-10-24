@@ -32,21 +32,21 @@ class LatexToPdf
     FileUtils.mkdir_p(dir)
     File.open(latex_file, 'wb') { |io| io.write(code) }
 
-    tex_distro.run_command(dir, tex_distro.build_command(config[:arguments], input), config[:dockerImage])
+    tex_distro.run_command(dir, tex_distro.build_command(config[:arguments], input), config)
 
     if config[:bibtex]
       bib_file = input
       bib_index_file = "#{input}.idx"
 
-      tex_distro.run_command(dir, "bibtex #{bib_file}", config[:dockerImage])
-      tex_distro.run_command(dir, "makeindex #{bib_index_file}", config[:dockerImage])
+      tex_distro.run_command(dir, "bibtex #{bib_file}", config)
+      tex_distro.run_command(dir, "makeindex #{bib_index_file}", config)
 
-      tex_distro.run_command(dir, tex_distro.build_command(config[:arguments], input), config[:dockerImage])
-      tex_distro.run_command(dir, tex_distro.build_command(config[:arguments], input), config[:dockerImage])
+      tex_distro.run_command(dir, tex_distro.build_command(config[:arguments], input), config)
+      tex_distro.run_command(dir, tex_distro.build_command(config[:arguments], input), config)
     end
 
     # This is where PDF is actually generated
-    tex_distro.run_command(dir, tex_distro.build_pdf_command(config[:arguments], input), config[:dockerImage])
+    tex_distro.run_command(dir, tex_distro.build_pdf_command(config[:arguments], input), config)
 
 
     if File.exist? pdf_file
